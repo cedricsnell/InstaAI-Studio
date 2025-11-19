@@ -1,0 +1,41 @@
+# Video Processing
+moviepy==1.0.3
+ffmpeg-python==0.2.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# AI & Natural Language Processing
+anthropic>=0.18.0
+openai>=1.12.0
+langchain>=0.1.0
+
+# Instagram API
+instagrapi>=2.1.0
+requests>=2.31.0
+
+# Scheduling
+APScheduler>=3.10.0
+python-crontab>=3.0.0
+
+# Web Framework (Optional - for web UI)
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.6.0
+
+# Utilities
+python-dotenv==1.0.1
+pyyaml==6.0.1
+python-slugify==8.0.4
+tqdm==4.66.1
+colorama==0.4.6
+
+# Audio Processing
+pydub==0.25.1
+librosa==0.10.1
+
+# Database (for scheduling)
+sqlalchemy==2.0.25
+
+# Additional dependencies for web UI
+python-dateutil==2.8.2
+python-multipart==0.0.6

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstaAI Studio - Create Instagram Content with AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <h1>🎬 InstaAI Studio</h1>
+                <p>Create Instagram content with natural language</p>
+            </div>
+            <div class="user-info">
+                <span id="username">Not logged in</span>
+                <button id="logout-btn" class="btn-secondary">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Login Screen -->
+            <div id="login-screen" class="screen active">
+                <div class="login-box">
+                    <h2>Login to InstaAI Studio</h2>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="login-username">Username</label>
+                            <input type="text" id="login-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Login</button>
+                    </form>
+                    <p class="help-text">Default credentials: admin / admin123</p>
+                </div>
+            </div>
+
+            <!-- Dashboard -->
+            <div id="dashboard-screen" class="screen">
+                <!-- Navigation Tabs -->
+                <nav class="tabs">
+                    <button class="tab active" data-tab="create">Create Content</button>
+                    <button class="tab" data-tab="manage">Manage Files</button>
+                    <button class="tab" data-tab="schedule">Schedule Posts</button>
+                    <button class="tab" data-tab="account">Account</button>
+                </nav>
+
+                <!-- Create Content Tab -->
+                <div id="create-tab" class="tab-content active">
+                    <h2>Create Instagram Content</h2>
+
+                    <!-- Step 1: Upload -->
+                    <div class="card">
+                        <h3>Step 1: Upload Video or Image</h3>
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-icon">📤</div>
+                            <p>Drag & drop your video/image here</p>
+                            <p class="or">or</p>
+                            <input type="file" id="file-input" accept="video/*,image/*" hidden>
+                            <button class="btn-secondary" onclick="document.getElementById('file-input').click()">
+                                Choose File
+                            </button>
+                        </div>
+                        <div id="upload-status"></div>
+                    </div>
+
+                    <!-- Step 2: Edit Commands -->
+                    <div class="card">
+                        <h3>Step 2: Describe What You Want</h3>
+                        <div class="commands-area">
+                            <div id="commands-list">
+                                <div class="command-input">
+                                    <input type="text" placeholder='e.g., "Make it a vertical reel"' class="command-field">
+                                    <button class="btn-icon" onclick="addCommand()">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quick-commands">
+                            <p><strong>Quick commands:</strong></p>
+                            <button class="btn-tag" onclick="addQuickCommand('Make it a reel')">Make it a reel</button>
+                            <button class="btn-tag" onclick="addQuickCommand('Add jump cuts to remove pauses')">Add jump cuts</button>
+                            <button class="btn-tag" onclick="addQuickCommand('Add upbeat music at 50% volume')">Add music</button>
+                            <button class="btn-tag" onclick="addQuickCommand('Speed up by 1.5x')">Speed up 1.5x</button>
+                            <button class="btn-tag" onclick="addQuickCommand('Add text at the top')">Add text</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Content Type -->
+                    <div class="card">
+                        <h3>Step 3: Choose Content Type</h3>
+                        <div class="content-types">
+                            <label class="content-type">
+                                <input type="radio" name="content-type" value="reel" checked>
+                                <div class="type-card">
+                                    <div class="type-icon">📱</div>
+                                    <h4>Reel</h4>
+                                    <p>9:16 vertical</p>
+                                </div>
+                            </label>
+                            <label class="content-type">
+                                <input type="radio" name="content-type" value="story">
+                                <div class="type-card">
+                                    <div class="type-icon">⭐</div>
+                                    <h4>Story</h4>
+                                    <p>9:16 vertical</p>
+                                </div>
+                            </label>
+                            <label class="content-type">
+                                <input type="radio" name="content-type" value="feed">
+                                <div class="type-card">
+                                    <div class="type-icon">🖼️</div>
+                                    <h4>Feed Post</h4>
+                                    <p>1:1 square</p>
+                                </div>
+                            </label>
+                            <label class="content-type">
+                                <input type="radio" name="content-type" value="carousel">
+                                <div class="type-card">
+                                    <div class="type-icon">🎠</div>
+                                    <h4>Carousel</h4>
+                                    <p>1:1 square</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Create Button -->
+                    <button id="create-btn" class="btn-primary btn-large" onclick="createContent()">
+                        🎬 Create Content
+                    </button>
+
+                    <div id="create-status" class="status-message"></div>
+                </div>
+
+                <!-- Manage Files Tab -->
+                <div id="manage-tab" class="tab-content">
+                    <h2>Your Files</h2>
+
+                    <div class="files-section">
+                        <h3>Created Content</h3>
+                        <div id="output-files" class="files-grid">
+                            <p class="empty-state">No files yet. Create some content!</p>
+                        </div>
+                    </div>
+
+                    <div class="files-section">
+                        <h3>Uploads</h3>
+                        <div id="upload-files" class="files-grid">
+                            <p class="empty-state">No uploads yet.</p>
+                        </div>
+                    </div>
+
+                    <button class="btn-secondary" onclick="refreshFiles()">Refresh</button>
+                </div>
+
+                <!-- Schedule Posts Tab -->
+                <div id="schedule-tab" class="tab-content">
+                    <h2>Schedule Posts</h2>
+
+                    <div class="card">
+                        <h3>Schedule New Post</h3>
+                        <form id="schedule-form">
+                            <div class="form-group">
+                                <label>Select File</label>
+                                <select id="schedule-file" required>
+                                    <option value="">Choose a file...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Post Type</label>
+                                <select id="schedule-type" required>
+                                    <option value="reel">Reel</option>
+                                    <option value="story">Story</option>
+                                    <option value="photo">Photo</option>
+                                    <option value="video">Video</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Schedule Time</label>
+                                <input type="datetime-local" id="schedule-time" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Caption</label>
+                                <textarea id="schedule-caption" rows="3"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Hashtags (comma separated)</label>
+                                <input type="text" id="schedule-hashtags" placeholder="viral, reels, trending">
+                            </div>
+
+                            <button type="submit" class="btn-primary">Schedule Post</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>Scheduled Posts</h3>
+                        <div id="scheduled-posts">
+                            <p class="empty-state">No scheduled posts.</p>
+                        </div>
+                        <button class="btn-secondary" onclick="refreshScheduled()">Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Account Tab -->
+                <div id="account-tab" class="tab-content">
+                    <h2>Account Information</h2>
+
+                    <div class="card">
+                        <h3>Instagram Account</h3>
+                        <div id="account-info">
+                            <p>Loading...</p>
+                        </div>
+                        <button class="btn-secondary" onclick="refreshAccountInfo()">Refresh</button>
+                    </div>
+
+                    <div class="card">
+                        <h3>Configuration Status</h3>
+                        <div id="config-status">
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>InstaAI Studio v1.0.0 | Made with ❤️ for content creators</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
