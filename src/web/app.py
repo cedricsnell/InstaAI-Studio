@@ -456,12 +456,12 @@ async def get_stats(username: str = Depends(verify_credentials)):
 if __name__ == "__main__":
     print("Starting InstaAI Studio Web Server...")
     print(f"Default credentials: admin / admin123")
-    print(f"Access at: http://localhost:8000")
-    print(f"API docs at: http://localhost:8000/docs")
+    print(f"Access at: http://localhost:5001")
+    print(f"API docs at: http://localhost:5001/docs")
 
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=5001,
         log_level="info"
     )
