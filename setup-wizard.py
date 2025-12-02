@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 InstaAI Studio - Interactive Setup Wizard
 Guides you through collecting all credentials and generating .env file
 """
 
 import os
+import sys
 import secrets
 from pathlib import Path
+
+# Fix Windows console encoding
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 
 def print_header(text):
