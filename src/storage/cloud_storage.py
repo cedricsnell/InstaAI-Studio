@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 class StorageProvider(str, Enum):
     S3 = "s3"
+    R2 = "r2"  # Cloudflare R2 (S3-compatible)
+    SUPABASE = "supabase"
     CLOUDINARY = "cloudinary"
     LOCAL = "local"
 
@@ -27,16 +29,47 @@ class CloudStorage:
         Initialize cloud storage.
 
         Args:
-            provider: 's3', 'cloudinary', or 'local' (defaults to env var STORAGE_PROVIDER)
+            provider: 'r2', 's3', 'supabase', 'cloudinary', or 'local' (defaults to env var STORAGE_PROVIDER)
         """
         self.provider = StorageProvider(provider or os.getenv("STORAGE_PROVIDER", "local"))
 
-        if self.provider == StorageProvider.S3:
+        if self.provider == StorageProvider.R2:
+            self._init_r2()
+        elif self.provider == StorageProvider.S3:
             self._init_s3()
+        elif self.provider == StorageProvider.SUPABASE:
+            self._init_supabase()
         elif self.provider == StorageProvider.CLOUDINARY:
             self._init_cloudinary()
         else:
             self._init_local()
+
+    def _init_r2(self):
+        """Initialize Cloudflare R2 client (S3-compatible)."""
+        try:
+            import boto3
+            from botocore.exceptions import ClientError
+
+            # R2 uses S3-compatible API with custom endpoint
+            account_id = os.getenv("R2_ACCOUNT_ID")
+            self.s3_client = boto3.client(
+                's3',
+                endpoint_url=f'https://{account_id}.r2.cloudflarestorage.com',
+                aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("R2_SECRET_ACCESS_KEY"),
+                region_name='auto'  # R2 uses 'auto' for region
+            )
+            self.s3_bucket = os.getenv("R2_BUCKET_NAME", "instaai-storage")
+            # Custom domain or R2 public URL
+            self.s3_base_url = os.getenv("R2_PUBLIC_URL", f"https://pub-{account_id}.r2.dev")
+
+            logger.info("Cloudflare R2 storage initialized")
+        except ImportError:
+            logger.error("boto3 not installed. Install with: pip install boto3")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to initialize R2: {e}")
+            raise
 
     def _init_s3(self):
         """Initialize AWS S3 client."""
@@ -59,6 +92,32 @@ class CloudStorage:
             raise
         except Exception as e:
             logger.error(f"Failed to initialize S3: {e}")
+            raise
+
+    def _init_supabase(self):
+        """Initialize Supabase Storage client."""
+        try:
+            from supabase import create_client, Client
+
+            supabase_url = os.getenv("SUPABASE_URL")
+            supabase_key = os.getenv("SUPABASE_SERVICE_KEY")  # Use service key for admin access
+
+            self.supabase: Client = create_client(supabase_url, supabase_key)
+            self.supabase_bucket = os.getenv("SUPABASE_BUCKET", "instaai-media")
+            self.supabase_base_url = f"{supabase_url}/storage/v1/object/public/{self.supabase_bucket}"
+
+            # Create bucket if it doesn't exist
+            try:
+                self.supabase.storage.get_bucket(self.supabase_bucket)
+            except:
+                self.supabase.storage.create_bucket(self.supabase_bucket, {"public": True})
+
+            logger.info("Supabase storage initialized")
+        except ImportError:
+            logger.error("supabase not installed. Install with: pip install supabase")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to initialize Supabase: {e}")
             raise
 
     def _init_cloudinary(self):
@@ -116,8 +175,10 @@ class CloudStorage:
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        if self.provider == StorageProvider.S3:
+        if self.provider in [StorageProvider.R2, StorageProvider.S3]:
             return self._upload_to_s3(file_path, folder, public_id)
+        elif self.provider == StorageProvider.SUPABASE:
+            return self._upload_to_supabase(file_path, folder, public_id, "video")
         elif self.provider == StorageProvider.CLOUDINARY:
             return self._upload_to_cloudinary(file_path, folder, public_id, "video")
         else:
@@ -143,8 +204,10 @@ class CloudStorage:
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        if self.provider == StorageProvider.S3:
+        if self.provider in [StorageProvider.R2, StorageProvider.S3]:
             return self._upload_to_s3(file_path, folder, public_id)
+        elif self.provider == StorageProvider.SUPABASE:
+            return self._upload_to_supabase(file_path, folder, public_id, "image")
         elif self.provider == StorageProvider.CLOUDINARY:
             return self._upload_to_cloudinary(file_path, folder, public_id, "image")
         else:
@@ -225,6 +288,55 @@ class CloudStorage:
             logger.error(f"Cloudinary upload failed: {e}")
             raise
 
+    def _upload_to_supabase(
+        self,
+        file_path: Path,
+        folder: str,
+        public_id: Optional[str],
+        resource_type: str
+    ) -> Dict[str, Any]:
+        """Upload file to Supabase Storage."""
+        try:
+            # Generate path
+            if public_id:
+                object_path = f"{folder}/{public_id}{file_path.suffix}"
+            else:
+                object_path = f"{folder}/{file_path.name}"
+
+            # Read file
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+
+            # Determine content type
+            if resource_type == "video":
+                content_type = "video/mp4" if file_path.suffix == ".mp4" else "video/quicktime"
+            else:
+                content_type = "image/jpeg" if file_path.suffix in [".jpg", ".jpeg"] else f"image/{file_path.suffix.lstrip('.')}"
+
+            # Upload to Supabase
+            response = self.supabase.storage.from_(self.supabase_bucket).upload(
+                object_path,
+                file_data,
+                {"content-type": content_type}
+            )
+
+            # Get public URL
+            url = f"{self.supabase_base_url}/{object_path}"
+
+            logger.info(f"✅ Uploaded to Supabase: {url}")
+
+            return {
+                "url": url,
+                "secure_url": url,
+                "public_id": object_path,
+                "format": file_path.suffix.lstrip('.'),
+                "resource_type": resource_type
+            }
+
+        except Exception as e:
+            logger.error(f"Supabase upload failed: {e}")
+            raise
+
     def _upload_local(
         self,
         file_path: Path,
@@ -277,8 +389,10 @@ class CloudStorage:
             True if successful
         """
         try:
-            if self.provider == StorageProvider.S3:
+            if self.provider in [StorageProvider.R2, StorageProvider.S3]:
                 self.s3_client.delete_object(Bucket=self.s3_bucket, Key=public_id)
+            elif self.provider == StorageProvider.SUPABASE:
+                self.supabase.storage.from_(self.supabase_bucket).remove([public_id])
             elif self.provider == StorageProvider.CLOUDINARY:
                 self.cloudinary.uploader.destroy(public_id)
             else:
@@ -304,8 +418,10 @@ class CloudStorage:
         Returns:
             Public URL
         """
-        if self.provider == StorageProvider.S3:
+        if self.provider in [StorageProvider.R2, StorageProvider.S3]:
             return f"{self.s3_base_url}/{public_id}"
+        elif self.provider == StorageProvider.SUPABASE:
+            return f"{self.supabase_base_url}/{public_id}"
         elif self.provider == StorageProvider.CLOUDINARY:
             from cloudinary import CloudinaryImage
             return CloudinaryImage(public_id).build_url()
