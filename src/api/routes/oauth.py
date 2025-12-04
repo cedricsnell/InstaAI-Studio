@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 import httpx
 import jwt
 from typing import Optional
+import os
 
 from ...database import get_db
 from ...database.models import User
@@ -35,14 +36,14 @@ class AppleCallbackRequest(BaseModel):
     fullName: Optional[dict] = None
     email: Optional[str] = None
 
-# OAuth Configuration (should be in environment variables in production)
-GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
-GOOGLE_CLIENT_SECRET = "YOUR_GOOGLE_CLIENT_SECRET"
-FACEBOOK_APP_ID = "YOUR_FACEBOOK_APP_ID"
-FACEBOOK_APP_SECRET = "YOUR_FACEBOOK_APP_SECRET"
-APPLE_CLIENT_ID = "com.instaai.studio"
-APPLE_TEAM_ID = "YOUR_APPLE_TEAM_ID"
-APPLE_KEY_ID = "YOUR_APPLE_KEY_ID"
+# OAuth Configuration from environment variables
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", os.getenv("INSTAGRAM_APP_ID"))
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", os.getenv("INSTAGRAM_APP_SECRET"))
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "com.instaai.studio")
+APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID")
+APPLE_KEY_ID = os.getenv("APPLE_KEY_ID")
 
 
 @router.post("/google/callback")

@@ -17,9 +17,13 @@ from ..database.models import User
 router = APIRouter()
 
 # Security configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable must be set")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+MAX_LOGIN_ATTEMPTS = 5
+ACCOUNT_LOCK_DURATION_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
@@ -152,12 +156,48 @@ async def login(
     """Login with email and password."""
     # Find user
     user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Check if account is locked
+    if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+        time_remaining = (user.account_locked_until - datetime.utcnow()).total_seconds() / 60
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account locked. Try again in {int(time_remaining)} minutes.",
+        )
+
+    # Verify password
+    if not verify_password(form_data.password, user.hashed_password):
+        # Increment failed login attempts
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+
+        # Lock account if max attempts exceeded
+        if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
+            user.account_locked_until = datetime.utcnow() + timedelta(minutes=ACCOUNT_LOCK_DURATION_MINUTES)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account locked due to too many failed login attempts. Try again in {ACCOUNT_LOCK_DURATION_MINUTES} minutes.",
+            )
+
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Incorrect email or password. {MAX_LOGIN_ATTEMPTS - user.failed_login_attempts} attempts remaining.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Reset failed login attempts and update last login
+    user.failed_login_attempts = 0
+    user.account_locked_until = None
+    user.last_login_at = datetime.utcnow()
+    db.commit()
 
     # Create access token
     access_token = create_access_token(data={"sub": user.email})

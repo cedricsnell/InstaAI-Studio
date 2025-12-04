@@ -10,7 +10,7 @@ from typing import Optional
 import os
 
 from ..database import get_db, init_db
-from . import auth  # , instagram, insights, content, schedule
+from . import auth, instagram, insights, content, schedule, teams
 from .routes import oauth
 
 # Initialize FastAPI app
@@ -68,10 +68,11 @@ async def health_check():
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(oauth.router, prefix="/api", tags=["OAuth"])
-# app.include_router(instagram.router, prefix="/api/instagram", tags=["Instagram"])
-# app.include_router(insights.router, prefix="/api/insights", tags=["Insights & Analytics"])
-# app.include_router(content.router, prefix="/api/content", tags=["Content Generation"])
-# app.include_router(schedule.router, prefix="/api/schedule", tags=["Post Scheduling"])
+app.include_router(teams.router, prefix="/api", tags=["Teams & Collaboration"])
+app.include_router(instagram.router, prefix="/api/instagram", tags=["Instagram"])
+app.include_router(insights.router, prefix="/api/insights", tags=["Insights & Analytics"])
+app.include_router(content.router, prefix="/api/content", tags=["Content Generation"])
+app.include_router(schedule.router, prefix="/api/schedule", tags=["Post Scheduling"])
 
 
 if __name__ == "__main__":

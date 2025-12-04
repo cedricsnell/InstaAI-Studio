@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
     Column, Integer, String, DateTime, Boolean, JSON,
-    Float, ForeignKey, Text, Enum as SQLEnum
+    Float, ForeignKey, Text, Enum as SQLEnum, Index
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -66,11 +66,12 @@ class User(Base):
 
 
 class InstagramAccount(Base):
-    """Instagram accounts connected by users."""
+    """Instagram accounts connected by users or teams."""
     __tablename__ = "instagram_accounts"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)  # Optional team ownership
 
     # Instagram Business Account Info
     instagram_user_id = Column(String(255), unique=True, nullable=False, index=True)
@@ -416,3 +417,117 @@ class ContentTemplate(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ========================================
+# Team/Agency Management Models
+# ========================================
+
+class TeamRole(str, enum.Enum):
+    """Roles for team members."""
+    OWNER = "owner"           # Full control, can delete team
+    ADMIN = "admin"           # Can manage members and settings
+    MEMBER = "member"         # Can view and edit content
+    VIEWER = "viewer"         # Read-only access
+
+
+class InviteStatus(str, enum.Enum):
+    """Status of team invitations."""
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+
+
+class Team(Base):
+    """Teams/Workspaces for agencies managing multiple clients."""
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    
+    # Owner/creator
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    
+    # Team settings
+    is_active = Column(Boolean, default=True)
+    max_members = Column(Integer, default=10)  # Subscription-based limit
+    
+    # Billing (if team has its own subscription)
+    subscription_tier = Column(String(50), default='free')
+    stripe_customer_id = Column(String(255), nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    owner = relationship("User", foreign_keys=[owner_id])
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    invites = relationship("TeamInvite", back_populates="team", cascade="all, delete-orphan")
+
+
+class TeamMember(Base):
+    """Membership linking users to teams with roles."""
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    
+    role = Column(SQLEnum(TeamRole), default=TeamRole.MEMBER, nullable=False)
+    
+    # Permissions
+    can_manage_content = Column(Boolean, default=True)
+    can_manage_instagram = Column(Boolean, default=True)
+    can_view_analytics = Column(Boolean, default=True)
+    can_invite_members = Column(Boolean, default=False)
+    
+    joined_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    team = relationship("Team", back_populates="members")
+    user = relationship("User")
+    
+    # Unique constraint: user can only be in a team once
+    __table_args__ = (
+        Index('idx_team_user', 'team_id', 'user_id', unique=True),
+    )
+
+
+class TeamInvite(Base):
+    """Pending invitations to join teams."""
+    __tablename__ = "team_invites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    
+    # Invite details
+    email = Column(String(255), nullable=False, index=True)
+    role = Column(SQLEnum(TeamRole), default=TeamRole.MEMBER, nullable=False)
+    
+    # Who sent the invite
+    invited_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Status tracking
+    status = Column(SQLEnum(InviteStatus), default=InviteStatus.PENDING, index=True)
+    token = Column(String(255), unique=True, nullable=False, index=True)  # Unique invite token
+    
+    # Permissions for this invite
+    can_manage_content = Column(Boolean, default=True)
+    can_manage_instagram = Column(Boolean, default=True)
+    can_view_analytics = Column(Boolean, default=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)  # Invites expire after X days
+    accepted_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    team = relationship("Team", back_populates="invites")
+    invited_by = relationship("User", foreign_keys=[invited_by_id])
+
+
+# Update InstagramAccount to support team access
+# Add team_id column (migration will handle this)

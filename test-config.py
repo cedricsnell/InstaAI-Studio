@@ -8,6 +8,12 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Fix Windows console encoding
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 # Load environment variables
 load_dotenv()
 

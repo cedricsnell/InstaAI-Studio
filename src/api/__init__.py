@@ -1,6 +1,6 @@
 """
 API package for InstaAI backend.
 """
-from . import auth, instagram, insights, content, schedule
+from . import auth, instagram, insights, content, schedule, teams
 
-__all__ = ["auth", "instagram", "insights", "content", "schedule"]
+__all__ = ["auth", "instagram", "insights", "content", "schedule", "teams"]
