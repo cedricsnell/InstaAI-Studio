@@ -130,3 +130,6 @@ dmypy.json
 *.part
 *.tmp
 ffmpeg2pass-*.log
+
+# Local Netlify folder
+.netlify
