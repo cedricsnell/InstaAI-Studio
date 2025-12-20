@@ -20,10 +20,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware - allow mobile app to connect
+# CORS middleware - allow frontend and mobile app to connect
+allowed_origins = [
+    "https://instaaistudio.netlify.app",  # Production Netlify frontend
+    "http://localhost:3000",  # Local development
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:8080",  # Alternative dev server
+]
+
+# Add any additional origins from environment variable
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url and frontend_url not in allowed_origins:
+    allowed_origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
