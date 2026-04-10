@@ -1,4 +1,10 @@
+databases:
+  - name: instaai-db
+    databaseName: instaai
+    plan: free
+
 services:
+  # Web API
   - type: web
     name: instaai-studio
     runtime: python
@@ -11,13 +17,103 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
+      - key: DATABASE_URL
+        fromDatabase:
+          name: instaai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: instaai-redis
+          type: redis
+          property: connectionString
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: INSTAGRAM_USERNAME
+      - key: INSTAGRAM_APP_ID
         sync: false
-      - key: INSTAGRAM_PASSWORD
+      - key: INSTAGRAM_APP_SECRET
+        sync: false
+      - key: INSTAGRAM_REDIRECT_URI
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_STARTER
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_AGENCY
         sync: false
       - key: DEFAULT_AI_PROVIDER
         value: anthropic
       - key: LOG_LEVEL
         value: INFO
+
+  # Celery worker - processes background tasks (publishing, content gen)
+  - type: worker
+    name: instaai-worker
+    runtime: python
+    plan: free
+    buildCommand: |
+      apt-get update && apt-get install -y ffmpeg
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: celery -A src.tasks.celery_app worker --loglevel=info --concurrency=2
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: DATABASE_URL
+        fromDatabase:
+          name: instaai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: instaai-redis
+          type: redis
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: INSTAGRAM_APP_ID
+        sync: false
+      - key: INSTAGRAM_APP_SECRET
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Celery beat - triggers scheduled jobs (sync every 6h, post check every 5min)
+  - type: worker
+    name: instaai-beat
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: celery -A src.tasks.celery_app beat --loglevel=info --scheduler celery.beat:PersistentScheduler
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: DATABASE_URL
+        fromDatabase:
+          name: instaai-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: instaai-redis
+          type: redis
+          property: connectionString
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Redis - message broker for Celery
+  - type: redis
+    name: instaai-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru

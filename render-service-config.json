@@ -1,0 +1,142 @@
+{
+  "type": "web_service",
+  "ownerId": "tea-d45u9fc9c44c73cbht2g",
+  "name": "instaai-studio",
+  "runtime": "python",
+  "plan": "starter",
+  "region": "oregon",
+  "branch": "main",
+  "repo": "https://github.com/cedricsnell/InstaAI-Studio",
+  "autoDeploy": "yes",
+  "serviceDetails": {
+    "env": "python",
+    "plan": "starter",
+    "region": "oregon",
+    "envSpecificDetails": {
+      "buildCommand": "pip install -r requirements.txt",
+      "startCommand": "cd src/web && uvicorn app:app --host 0.0.0.0 --port $PORT"
+    },
+    "envVars": [
+      {
+        "key": "ENVIRONMENT",
+        "value": "production"
+      },
+      {
+        "key": "SECRET_KEY",
+        "value": "857a842ccb3d24343b7eef1e511c345bbd6d97430b7530eaef709e3eafc54ce2"
+      },
+      {
+        "key": "LOG_LEVEL",
+        "value": "INFO"
+      },
+      {
+        "key": "DATABASE_URL",
+        "value": "postgresql://postgres.dnlqidaowlfnmmnycfzh:sFEihnaw2avTs9eZ@aws-0-us-west-2.pooler.supabase.com:6543/postgres"
+      },
+      {
+        "key": "SUPABASE_URL",
+        "value": "https://dnlqidaowlfnmmnycfzh.supabase.co"
+      },
+      {
+        "key": "SUPABASE_ANON_KEY",
+        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubHFpZGFvd2xmbm1tbnljZnpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MTI0NjUsImV4cCI6MjA4MDI4ODQ2NX0.UgEoW4DG3R_Krdzii_6IJZEfzCEOPdWOu2WW-m8PdNs"
+      },
+      {
+        "key": "SUPABASE_SERVICE_KEY",
+        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubHFpZGFvd2xmbm1tbnljZnpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDcxMjQ2NSwiZXhwIjoyMDgwMjg4NDY1fQ.n8RkmzvssS05AsjL6yFRlXRu7cVcWqg4jhzFjuQcN9g"
+      },
+      {
+        "key": "REDIS_URL",
+        "value": "rediss://default:AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg@crack-spider-43858.upstash.io:6379"
+      },
+      {
+        "key": "UPSTASH_REDIS_REST_URL",
+        "value": "https://crack-spider-43858.upstash.io"
+      },
+      {
+        "key": "UPSTASH_REDIS_REST_TOKEN",
+        "value": "AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg"
+      },
+      {
+        "key": "STORAGE_PROVIDER",
+        "value": "r2"
+      },
+      {
+        "key": "R2_ACCOUNT_ID",
+        "value": "1f27990e7f4c6faea81033fd6fcbdd93"
+      },
+      {
+        "key": "R2_ACCESS_KEY_ID",
+        "value": "e71228d3c6460394851f8c23c4f7669f"
+      },
+      {
+        "key": "R2_SECRET_ACCESS_KEY",
+        "value": "b9d239536419f2cd1d4395246d24776fb7511ceafea6543eb1f81ae686e58ef5"
+      },
+      {
+        "key": "R2_BUCKET_NAME",
+        "value": "instaai-storage"
+      },
+      {
+        "key": "R2_PUBLIC_URL",
+        "value": "https://pub-1f27990e.r2.dev"
+      },
+      {
+        "key": "CELERY_BROKER_URL",
+        "value": "rediss://default:AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg@crack-spider-43858.upstash.io:6379"
+      },
+      {
+        "key": "CELERY_RESULT_BACKEND",
+        "value": "rediss://default:AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg@crack-spider-43858.upstash.io:6379"
+      },
+      {
+        "key": "CELERY_TASK_ALWAYS_EAGER",
+        "value": "false"
+      },
+      {
+        "key": "INSTAGRAM_APP_ID",
+        "value": "1228649142654729"
+      },
+      {
+        "key": "INSTAGRAM_APP_SECRET",
+        "value": "02a8aa87ad932e861350103ed5efbede"
+      },
+      {
+        "key": "ANTHROPIC_API_KEY",
+        "value": "sk-ant-api03-REDACTED"
+      },
+      {
+        "key": "OPENAI_API_KEY",
+        "value": "sk-your-key-here"
+      },
+      {
+        "key": "AI_PROVIDER",
+        "value": "anthropic"
+      },
+      {
+        "key": "ALLOW_CREDENTIALS",
+        "value": "true"
+      },
+      {
+        "key": "DEBUG",
+        "value": "false"
+      },
+      {
+        "key": "RELOAD",
+        "value": "false"
+      },
+      {
+        "key": "WORKERS",
+        "value": "1"
+      },
+      {
+        "key": "PORT",
+        "value": "8000"
+      },
+      {
+        "key": "PYTHON_VERSION",
+        "value": "3.12.2"
+      }
+    ]
+  }
+}

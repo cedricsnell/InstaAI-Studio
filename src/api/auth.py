@@ -10,6 +10,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
+import secrets
 
 from ..database import get_db
 from ..database.models import User
@@ -221,9 +222,73 @@ async def google_auth(google_token: str, db: Session = Depends(get_db)):
     Authenticate with Google OAuth token.
     TODO: Implement Google token verification.
     """
-    # TODO: Verify Google token and extract user info
-    # For now, this is a placeholder
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Google OAuth not yet implemented"
     )
+
+
+# ---------------------------------------------------------------------------
+# Password reset
+# ---------------------------------------------------------------------------
+
+# In-memory token store — sufficient for single-instance; swap for Redis/DB
+# in a multi-instance deployment.
+_reset_tokens: dict[str, tuple[str, datetime]] = {}  # token → (email, expires_at)
+
+RESET_TOKEN_EXPIRE_MINUTES = 30
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Generate a password reset token.  Always returns 200 so we don't leak
+    which emails are registered.  Log/email the token in production.
+    """
+    user = db.query(User).filter(User.email == request.email).first()
+    if user:
+        token = secrets.token_urlsafe(32)
+        expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        _reset_tokens[token] = (user.email, expires)
+        # TODO: send token via email (e.g. SendGrid / Resend)
+        # For now it is returned in the response for development convenience
+        print(f"[DEV] Password reset token for {user.email}: {token}")
+
+    return {"message": "If that email is registered you will receive a reset link."}
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Exchange a valid reset token for a new password."""
+    entry = _reset_tokens.get(request.token)
+    if not entry:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    email, expires_at = entry
+    if datetime.utcnow() > expires_at:
+        del _reset_tokens[request.token]
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    if len(request.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+
+    user.hashed_password = pwd_context.hash(request.new_password)
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
+
+    del _reset_tokens[request.token]
+    return {"message": "Password updated successfully"}

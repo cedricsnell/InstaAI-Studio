@@ -11,6 +11,7 @@ import logging
 from ..database import get_db
 from ..database.models import InstagramAccount, User, InstagramPost
 from .auth import get_current_active_user
+from .gating import check_account_limit
 from ..instagram.graph_api import get_instagram_api
 from dateutil.parser import parse as parse_date
 
@@ -77,6 +78,13 @@ async def connect_instagram(
     3. Fetch Instagram account info
     4. Save to database
     """
+    # Enforce account limit for the user's tier
+    account_count = db.query(InstagramAccount).filter(
+        InstagramAccount.user_id == current_user.id,
+        InstagramAccount.is_active == True
+    ).count()
+    check_account_limit(current_user, account_count)
+
     api = get_instagram_api()
 
     try:

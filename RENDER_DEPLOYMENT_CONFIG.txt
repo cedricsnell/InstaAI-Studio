@@ -1,0 +1,87 @@
+=================================================================
+INSTAAI STUDIO - RENDER DEPLOYMENT CONFIGURATION
+Copy/Paste These Environment Variables to Render Dashboard
+=================================================================
+
+INSTRUCTIONS:
+1. Go to: https://dashboard.render.com/
+2. Click "New +" → "Web Service"
+3. Select your GitHub repo: cedricsnell/InstaAI-Studio
+4. When prompted for Environment Variables, paste each line below
+5. Render will automatically parse KEY=VALUE format
+
+=================================================================
+COPY EVERYTHING BELOW THIS LINE ↓
+=================================================================
+
+ENVIRONMENT=production
+API_BASE_URL=https://instaaistudio.onrender.com
+FRONTEND_URL=https://instaaistudio.onrender.com
+SECRET_KEY=857a842ccb3d24343b7eef1e511c345bbd6d97430b7530eaef709e3eafc54ce2
+LOG_LEVEL=INFO
+
+DATABASE_URL=postgresql://postgres.dnlqidaowlfnmmnycfzh:sFEihnaw2avTs9eZ@aws-0-us-west-2.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://dnlqidaowlfnmmnycfzh.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubHFpZGFvd2xmbm1tbnljZnpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MTI0NjUsImV4cCI6MjA4MDI4ODQ2NX0.UgEoW4DG3R_Krdzii_6IJZEfzCEOPdWOu2WW-m8PdNs
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubHFpZGFvd2xmbm1tbnljZnpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDcxMjQ2NSwiZXhwIjoyMDgwMjg4NDY1fQ.n8RkmzvssS05AsjL6yFRlXRu7cVcWqg4jhzFjuQcN9g
+
+REDIS_URL=rediss://default:AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg@crack-spider-43858.upstash.io:6379
+UPSTASH_REDIS_REST_URL=https://crack-spider-43858.upstash.io
+UPSTASH_REDIS_REST_TOKEN=AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg
+
+STORAGE_PROVIDER=r2
+R2_ACCOUNT_ID=1f27990e7f4c6faea81033fd6fcbdd93
+R2_ACCESS_KEY_ID=e71228d3c6460394851f8c23c4f7669f
+R2_SECRET_ACCESS_KEY=b9d239536419f2cd1d4395246d24776fb7511ceafea6543eb1f81ae686e58ef5
+R2_BUCKET_NAME=instaai-storage
+R2_PUBLIC_URL=https://pub-1f27990e.r2.dev
+
+CELERY_BROKER_URL=rediss://default:AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg@crack-spider-43858.upstash.io:6379
+CELERY_RESULT_BACKEND=rediss://default:AatSAAIncDI5ZDJhZTVhYTg0NmE0YTYzYjZmZmZkMzI0MTllMDRkMXAyNDM4NTg@crack-spider-43858.upstash.io:6379
+CELERY_TASK_ALWAYS_EAGER=false
+
+INSTAGRAM_APP_ID=1228649142654729
+INSTAGRAM_APP_SECRET=02a8aa87ad932e861350103ed5efbede
+INSTAGRAM_REDIRECT_URI=https://instaaistudio.onrender.com/api/oauth/callback
+
+ANTHROPIC_API_KEY=sk-ant-api03-REDACTED
+OPENAI_API_KEY=sk-your-key-here
+AI_PROVIDER=anthropic
+
+ALLOWED_ORIGINS=https://instaaistudio.onrender.com
+ALLOW_CREDENTIALS=true
+
+DEBUG=false
+RELOAD=false
+WORKERS=1
+PORT=8000
+
+=================================================================
+END - Stop copying here ↑
+=================================================================
+
+NOTES:
+- I've updated localhost URLs to use instaaistudio.onrender.com
+- After deployment, if your Render URL is different, update:
+  * API_BASE_URL
+  * FRONTEND_URL
+  * INSTAGRAM_REDIRECT_URI
+  * ALLOWED_ORIGINS
+
+- Your actual Render URL will be shown after deployment completes
+
+DEPLOYMENT STEPS:
+1. Open: https://dashboard.render.com/
+2. Click "New +" → "Web Service"
+3. Connect to GitHub repo: cedricsnell/InstaAI-Studio
+4. Render will detect render.yaml automatically
+5. In "Environment Variables" section, click "Add from .env"
+6. Paste everything between the "COPY" markers above
+7. Click "Create Web Service"
+8. Wait 3-5 minutes for deployment
+9. Your app will be live at: https://instaaistudio.onrender.com (or similar)
+
+TROUBLESHOOTING:
+- If URLs don't match after deployment, go to:
+  Settings → Environment → Edit the 4 URLs mentioned above
+- Redeploy after changing environment variables

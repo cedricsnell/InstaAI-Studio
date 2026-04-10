@@ -11,6 +11,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import enum
 
+from ..utils.encryption import EncryptedText
+
 Base = declarative_base()
 
 
@@ -78,9 +80,9 @@ class InstagramAccount(Base):
     username = Column(String(255), nullable=False, index=True)
     account_type = Column(String(50))  # BUSINESS, MEDIA_CREATOR, PERSONAL
 
-    # OAuth tokens (should be encrypted in production)
-    access_token = Column(Text, nullable=False)
-    refresh_token = Column(Text, nullable=True)
+    # OAuth tokens — encrypted at rest using Fernet (TOKEN_ENCRYPTION_KEY)
+    access_token = Column(EncryptedText, nullable=False)
+    refresh_token = Column(EncryptedText, nullable=True)
     token_expires_at = Column(DateTime, nullable=False)
 
     # Account metadata

@@ -10,8 +10,8 @@ from typing import Optional
 import os
 
 from ..database import get_db, init_db
-from . import auth, instagram, insights, content, schedule, teams
-from .routes import oauth
+from . import auth, instagram, insights, content, schedule, teams, billing
+from .routes import oauth, instagram_callback
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -65,10 +65,39 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Detailed health check."""
+    from sqlalchemy import text
+
+    # Check database
+    db_status = "error"
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        db.close()
+        db_status = "connected"
+    except Exception:
+        pass
+
+    # Check Redis (if configured)
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        redis_status = "error"
+        try:
+            import redis as redis_lib
+            r = redis_lib.from_url(redis_url, socket_connect_timeout=2)
+            r.ping()
+            redis_status = "connected"
+        except Exception:
+            pass
+    else:
+        redis_status = "unconfigured"
+
+    overall = "healthy" if db_status == "connected" else "degraded"
+
     return {
-        "status": "healthy",
+        "status": overall,
         "timestamp": datetime.utcnow().isoformat(),
-        "database": "connected",
+        "database": db_status,
+        "redis": redis_status,
         "services": {
             "instagram_api": "operational",
             "ai_analysis": "operational",
@@ -80,11 +109,13 @@ async def health_check():
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(oauth.router, prefix="/api", tags=["OAuth"])
+app.include_router(instagram_callback.router, prefix="/auth", tags=["Instagram OAuth Callback"])
 app.include_router(teams.router, prefix="/api", tags=["Teams & Collaboration"])
 app.include_router(instagram.router, prefix="/api/instagram", tags=["Instagram"])
 app.include_router(insights.router, prefix="/api/insights", tags=["Insights & Analytics"])
 app.include_router(content.router, prefix="/api/content", tags=["Content Generation"])
 app.include_router(schedule.router, prefix="/api/schedule", tags=["Post Scheduling"])
+app.include_router(billing.router, prefix="/api/billing", tags=["Billing & Subscriptions"])
 
 
 if __name__ == "__main__":

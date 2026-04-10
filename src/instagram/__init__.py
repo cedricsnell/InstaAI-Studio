@@ -1,6 +1,7 @@
 """
 Instagram integration module for InstaAI Studio
+Uses the official Meta Graph API via OAuth tokens.
 """
-from .poster import InstagramPoster, InstagramValidator
+from .graph_api import get_instagram_api, InstagramGraphAPI
 
-__all__ = ['InstagramPoster', 'InstagramValidator']
+__all__ = ['get_instagram_api', 'InstagramGraphAPI']

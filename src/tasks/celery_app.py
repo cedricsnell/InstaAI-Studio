@@ -31,9 +31,6 @@ celery_app.conf.update(
 
     # Result backend settings
     result_expires=3600,  # 1 hour
-    result_backend_transport_options={
-        "master_name": "mymaster",
-    },
 
     # Task execution settings
     task_acks_late=True,
@@ -81,5 +78,6 @@ celery_app.conf.update(
 celery_app.conf.update(
     worker_hijack_root_logger=False,
     worker_log_format="[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
-    worker_task_log_format="[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s"
+    worker_task_log_format="[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s",
+    broker_connection_retry_on_startup=True,
 )

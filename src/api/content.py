@@ -17,6 +17,7 @@ from ..database.models import (
     InstagramPost,
 )
 from .auth import get_current_active_user
+from .gating import check_and_consume_quota, require_tier
 from ..ai.content_repurposer import ContentRepurposer
 
 router = APIRouter()
@@ -141,7 +142,7 @@ async def generate_reel_ideas(
     account_id: int,
     count: int = 10,
     niche: Optional[str] = None,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(check_and_consume_quota),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -247,7 +248,7 @@ async def generate_carousel_idea(
     account_id: int,
     theme: str,
     slide_count: int = 7,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(check_and_consume_quota),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """

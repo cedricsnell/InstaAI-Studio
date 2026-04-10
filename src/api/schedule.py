@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from ..database import get_db
-from ..database.models import PostSchedule, ScheduleStatus, User
+from ..database.models import PostSchedule, ScheduleStatus, User, GeneratedContent, InstagramAccount
 from .auth import get_current_active_user
 
 router = APIRouter()
@@ -16,6 +16,7 @@ router = APIRouter()
 
 class ScheduleCreateRequest(BaseModel):
     content_id: int
+    account_id: int
     scheduled_time: datetime
     caption: Optional[str] = None
 
@@ -56,21 +57,43 @@ async def list_scheduled_posts(
 @router.post("/", response_model=ScheduleResponse, status_code=status.HTTP_201_CREATED)
 async def schedule_post(
     request: ScheduleCreateRequest,
-    account_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Schedule a post for future publishing.
-    TODO: Implement scheduling logic with Celery/APScheduler.
-    """
-    # TODO: Validate content exists and belongs to user
-    # TODO: Schedule with background worker
-    # TODO: Save to database
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Post scheduling not yet implemented"
+    """Schedule a piece of generated content for future publishing."""
+    # Validate content exists and belongs to user
+    content = db.query(GeneratedContent).filter(
+        GeneratedContent.id == request.content_id,
+        GeneratedContent.user_id == current_user.id
+    ).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    # Validate account exists and belongs to user
+    account = db.query(InstagramAccount).filter(
+        InstagramAccount.id == request.account_id,
+        InstagramAccount.user_id == current_user.id,
+        InstagramAccount.is_active == True
+    ).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Instagram account not found")
+
+    if request.scheduled_time <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+
+    post = PostSchedule(
+        instagram_account_id=request.account_id,
+        generated_content_id=request.content_id,
+        scheduled_time=request.scheduled_time,
+        post_type=content.content_type or "reel",
+        media_url=content.file_url,
+        caption=request.caption or content.suggested_caption,
+        status=ScheduleStatus.SCHEDULED,
     )
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    return post
 
 
 @router.delete("/{schedule_id}")
