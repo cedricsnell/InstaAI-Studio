@@ -14,6 +14,7 @@ import secrets
 
 from ..database import get_db
 from ..database.models import User
+from ..utils.email import send_verification_email, send_password_reset_email
 
 router = APIRouter()
 
@@ -40,6 +41,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str]
     is_active: bool
+    is_verified: bool
     subscription_tier: str
     created_at: datetime
 
@@ -131,11 +133,23 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
         full_name=user.full_name,
         is_active=True,
+        is_verified=False,
         subscription_tier="free"
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # Generate and send verification email (non-blocking — never fails registration)
+    verify_token = secrets.token_urlsafe(32)
+    _verify_tokens[verify_token] = (
+        db_user.id,
+        datetime.utcnow() + timedelta(hours=VERIFY_TOKEN_EXPIRE_HOURS),
+    )
+    import asyncio
+    asyncio.create_task(
+        send_verification_email(db_user.email, verify_token, db_user.full_name)
+    )
 
     # Create access token
     access_token = create_access_token(data={"sub": user.email})
@@ -227,15 +241,90 @@ async def google_auth(google_token: str, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
-# Password reset
+# Token stores (in-memory — single-instance; swap for Redis in multi-instance)
 # ---------------------------------------------------------------------------
 
-# In-memory token store — sufficient for single-instance; swap for Redis/DB
-# in a multi-instance deployment.
+# email_verify:{token} → (user_id, expires_at)
+_verify_tokens: dict[str, tuple[int, datetime]] = {}
+
+VERIFY_TOKEN_EXPIRE_HOURS = 24
+
+# reset:{token} → (email, expires_at)
 _reset_tokens: dict[str, tuple[str, datetime]] = {}  # token → (email, expires_at)
 
 RESET_TOKEN_EXPIRE_MINUTES = 30
 
+
+# ---------------------------------------------------------------------------
+# Email verification endpoints
+# ---------------------------------------------------------------------------
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/verify-email", status_code=status.HTTP_200_OK)
+async def verify_email(token: str, db: Session = Depends(get_db)):
+    """
+    Confirm an email address using the token from the verification email.
+    Called by the frontend after the user clicks the link.
+    """
+    entry = _verify_tokens.get(token)
+    if not entry:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    user_id, expires_at = entry
+    if datetime.utcnow() > expires_at:
+        del _verify_tokens[token]
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    if user.is_verified:
+        del _verify_tokens[token]
+        return {"message": "Email already verified"}
+
+    user.is_verified = True
+    db.commit()
+    del _verify_tokens[token]
+
+    return {"message": "Email verified successfully"}
+
+
+@router.post("/resend-verification", status_code=status.HTTP_200_OK)
+async def resend_verification(
+    request: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Re-send the verification email. Always returns 200 to avoid leaking
+    which emails are registered. Throttles to one token per user (replaces old one).
+    """
+    user = db.query(User).filter(User.email == request.email).first()
+    if user and not user.is_verified:
+        # Invalidate any existing tokens for this user
+        expired = [t for t, (uid, _) in _verify_tokens.items() if uid == user.id]
+        for t in expired:
+            del _verify_tokens[t]
+
+        token = secrets.token_urlsafe(32)
+        _verify_tokens[token] = (
+            user.id,
+            datetime.utcnow() + timedelta(hours=VERIFY_TOKEN_EXPIRE_HOURS),
+        )
+        import asyncio
+        asyncio.create_task(
+            send_verification_email(user.email, token, user.full_name)
+        )
+
+    return {"message": "If that email is registered and unverified, a new link has been sent."}
+
+
+# ---------------------------------------------------------------------------
+# Password reset
+# ---------------------------------------------------------------------------
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -249,17 +338,18 @@ class ResetPasswordRequest(BaseModel):
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
-    Generate a password reset token.  Always returns 200 so we don't leak
-    which emails are registered.  Log/email the token in production.
+    Generate and email a password reset token. Always returns 200 so we
+    don't leak which emails are registered.
     """
     user = db.query(User).filter(User.email == request.email).first()
     if user:
         token = secrets.token_urlsafe(32)
         expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
         _reset_tokens[token] = (user.email, expires)
-        # TODO: send token via email (e.g. SendGrid / Resend)
-        # For now it is returned in the response for development convenience
-        print(f"[DEV] Password reset token for {user.email}: {token}")
+        import asyncio
+        asyncio.create_task(
+            send_password_reset_email(user.email, token, user.full_name)
+        )
 
     return {"message": "If that email is registered you will receive a reset link."}
 
