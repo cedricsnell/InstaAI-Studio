@@ -1,6 +1,7 @@
 """
 FastAPI main application for InstaAI backend.
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -13,11 +14,24 @@ from ..database import get_db, init_db
 from . import auth, instagram, insights, content, schedule, teams, billing
 from .routes import oauth, instagram_callback
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize resources on startup."""
+    try:
+        init_db()
+        print("Database initialized")
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+    yield
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="InstaAI API",
     description="End-to-end Instagram marketing automation API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware - allow frontend and mobile app to connect
@@ -40,16 +54,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup."""
-    try:
-        init_db()
-        print("Database initialized")
-    except Exception as e:
-        print(f"Database initialization failed: {e}")
 
 
 @app.get("/")
