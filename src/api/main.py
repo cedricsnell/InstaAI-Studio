@@ -18,6 +18,19 @@ from .routes import oauth, instagram_callback
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize resources on startup."""
+    print("=== InstaAI startup ===")
+
+    # Validate required env vars
+    required = ["SECRET_KEY", "DATABASE_URL"]
+    for var in required:
+        val = os.getenv(var)
+        print(f"  {var}: {'SET' if val else 'MISSING'}")
+    print(f"  TOKEN_ENCRYPTION_KEY: {'SET' if os.getenv('TOKEN_ENCRYPTION_KEY') else 'MISSING'}")
+    print(f"  REDIS_URL: {'SET' if os.getenv('REDIS_URL') else 'not configured'}")
+
+    if not os.getenv("SECRET_KEY"):
+        print("FATAL: SECRET_KEY is not set — JWT auth will not work")
+
     try:
         init_db()
         print("Database initialized")
