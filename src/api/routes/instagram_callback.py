@@ -9,18 +9,26 @@ This endpoint completes the full connection flow server-side:
   2. Exchange for long-lived token (60 days)
   3. Fetch account info
   4. Save/update InstagramAccount in DB
-  5. Return a browser-friendly success or error page
+  5. Redirect to the mobile deep link (instaaistudio://auth/instagram/callback)
+     so WebBrowser.openAuthSessionAsync resolves as 'success'.
+     Falls back to an HTML page for web / non-mobile contexts.
 """
 from fastapi import APIRouter, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlencode
+import os
 import logging
 
 from ...database import get_db
 from ...database.models import InstagramAccount, User
 from ...instagram.graph_api import get_instagram_api
+
+# Deep link scheme for the mobile app.  Override with MOBILE_DEEP_LINK_SCHEME env var if needed.
+_MOBILE_SCHEME = os.getenv("MOBILE_DEEP_LINK_SCHEME", "instaaistudio")
+_MOBILE_CALLBACK = f"{_MOBILE_SCHEME}://auth/instagram/callback"
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -43,30 +51,23 @@ async def instagram_oauth_callback(
     # ── User denied authorization ─────────────────────────────────────────
     if error:
         logger.warning(f"Instagram OAuth denied: {error} — {error_reason}")
-        return _page(
-            "Authorization Cancelled",
-            f"<p>Instagram returned: <strong>{error}</strong></p>"
-            f"<p>{error_description or error_reason or ''}</p>"
-            "<p>You can close this tab and try again from the app.</p>",
+        return _redirect_or_page(
             success=False,
+            error_msg=error_description or error_reason or error,
         )
 
     if not code or not state:
-        return _page(
-            "Invalid Callback",
-            "<p>Missing <code>code</code> or <code>state</code> parameter.</p>",
-            success=False,
-        )
+        return _redirect_or_page(success=False, error_msg="Missing code or state parameter")
 
     # ── Extract user from state (format: "user_{id}") ────────────────────
     try:
         user_id = int(state.replace("user_", ""))
     except (ValueError, AttributeError):
-        return _page("Invalid State", "<p>Could not identify user from state parameter.</p>", success=False)
+        return _redirect_or_page(success=False, error_msg="Invalid state parameter")
 
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     if not user:
-        return _page("User Not Found", "<p>The associated InstaAI account was not found.</p>", success=False)
+        return _redirect_or_page(success=False, error_msg="User account not found")
 
     # ── OAuth token exchange ──────────────────────────────────────────────
     api = get_instagram_api()
@@ -86,12 +87,9 @@ async def instagram_oauth_callback(
 
         account_type = account_info.get("account_type", "")
         if account_type not in ["BUSINESS", "MEDIA_CREATOR"]:
-            return _page(
-                "Account Type Not Supported",
-                "<p>Only Instagram <strong>Business</strong> or <strong>Creator</strong> accounts are supported.</p>"
-                f"<p>Your account type: <strong>{account_type or 'Personal'}</strong></p>"
-                "<p>Switch to a Professional account in Instagram settings and try again.</p>",
+            return _redirect_or_page(
                 success=False,
+                error_msg=f"Only Business or Creator accounts are supported (yours: {account_type or 'Personal'})",
             )
 
         # Step 4: save or update
@@ -129,26 +127,37 @@ async def instagram_oauth_callback(
         db.commit()
         logger.info(f"Instagram account @{username} connected for user {user_id}")
 
-        return _page(
-            "Instagram Connected!",
-            f"<p style='font-size:1.3em'>@<strong>{username}</strong></p>"
-            f"<p>{account_type} · {followers:,} followers</p>"
-            "<p style='color:#888;margin-top:2em'>You can close this tab and return to InstaAI Studio.</p>",
-            success=True,
-        )
+        return _redirect_or_page(success=True, username=username)
 
     except Exception as e:
         logger.error(f"Instagram OAuth callback failed for user {user_id}: {e}")
-        return _page(
-            "Connection Failed",
-            f"<p>{str(e)}</p><p>Please try again or contact support.</p>",
-            success=False,
-        )
+        return _redirect_or_page(success=False, error_msg=str(e))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _page(title: str, body: str, success: bool = True) -> HTMLResponse:
+def _redirect_or_page(
+    success: bool,
+    username: Optional[str] = None,
+    error_msg: Optional[str] = None,
+):
+    """
+    Redirect to the mobile deep link so WebBrowser.openAuthSessionAsync resolves.
+    Falls back to an HTML page (e.g., when opened in a plain browser on web).
+    """
+    params: dict = {"success": "true" if success else "false"}
+    if username:
+        params["username"] = username
+    if error_msg:
+        params["error"] = error_msg[:200]  # cap length for URL safety
+
+    deep_link = f"{_MOBILE_CALLBACK}?{urlencode(params)}"
+    # 302 redirect — Expo's WebBrowser intercepts this and returns {type: 'success'}
+    return RedirectResponse(url=deep_link, status_code=302)
+
+
+def _html_page(title: str, body: str, success: bool = True) -> HTMLResponse:
+    """Fallback HTML page (kept for direct browser access / debugging)."""
     icon = "✅" if success else "❌"
     color = "#22c55e" if success else "#ef4444"
     html = f"""<!DOCTYPE html>
